@@ -11,6 +11,24 @@ from bbox import BBox
 from model import Model
 from roi.pooler import Pooler
 from config.eval_config import EvalConfig as Config
+from tqdm import tqdm
+
+import json
+from collections import OrderedDict
+
+file_data = OrderedDict()
+def countClass(class_name):
+    if class_name in file_data:
+        file_data[class_name] += 1
+    else:
+        file_data[class_name] = 1
+
+def saveClassToJson(file_name):
+    saveFile = {}
+    for key in file_data:
+        saveFile[key] = int(file_data[key])
+    with open(file_name, 'w', encoding = "utf-8") as make_file:
+      json.dump(saveFile, make_file, ensure_ascii = False, indent = "\t")
 
 
 def _infer(path_to_input_image: str, path_to_output_image: str, path_to_checkpoint: str, dataset_name: str, backbone_name: str, prob_thresh: float):
@@ -22,7 +40,7 @@ def _infer(path_to_input_image: str, path_to_output_image: str, path_to_checkpoi
     model.load(path_to_checkpoint)
 
     with torch.no_grad():
-        for imageName in os.listdir(path_to_input_image):
+        for imageName in tqdm(os.listdir(path_to_input_image)):
 
             image = transforms.Image.open(path_to_input_image + '/' + imageName)
             image_tensor, scale = dataset_class.preprocess(image, Config.IMAGE_MIN_SIDE, Config.IMAGE_MAX_SIDE)
@@ -45,9 +63,11 @@ def _infer(path_to_input_image: str, path_to_output_image: str, path_to_checkpoi
 
                 draw.rectangle(((bbox.left, bbox.top), (bbox.right, bbox.bottom)), outline=color)
                 draw.text((bbox.left, bbox.top), text=f'{category:s} {prob:.3f}', fill=color)
+                countClass(category)
 
             image.save(path_to_output_image + '/' + imageName)
-            print(f'Output image is saved to {path_to_output_image} + / + {imageName}')
+            #print(f'Output image is saved to {path_to_output_image} + / + {imageName}')
+    saveClassToJson('outputClasses.json')
 
 
 if __name__ == '__main__':
